@@ -206,6 +206,15 @@ class QueryModel
         }
 		return $headers;
 	}
+	
+    /**
+     * Get retries
+     * @return integer
+     */
+    public function getRetries()
+    {
+		return $this->retries;
+	}
 
     /**
      * Get url link
@@ -315,8 +324,8 @@ class QueryModel
      */
     public function clearCache()
     {
-		if (file_exists($this->cache_path.'/'.$this->hash.'.cache')) {
-			@unlink($this->cache_path.'/'.$this->hash.'.cache');
+		if (file_exists($this->cache_path.'/'.$this->hash.'.Amoapi.cache')) {
+			@unlink($this->cache_path.'/'.$this->hash.'.Amoapi.cache');
 		}
 	}
 

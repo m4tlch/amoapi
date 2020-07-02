@@ -11,6 +11,7 @@ class QueryCollection extends \Ufee\Amo\Base\Collections\Collection
 {
     protected 
         $instance,
+		$instanceName,
         $delay = 1,
         $cache_path = '/Cache',
         $cookie_file,
@@ -25,6 +26,7 @@ class QueryCollection extends \Ufee\Amo\Base\Collections\Collection
     public function boot(ApiClient &$instance)
     {
         $this->instance = $instance;
+		$this->instanceName = substr(strrchr(get_class($instance), "\\"), 1);
         $this->logger = Api\Logger::getInstance($instance->getAuth('domain').'.log');
         $this->cachePath(AMOAPI_ROOT.$this->cache_path);
 		if ($instance instanceof Amoapi) {
@@ -82,13 +84,18 @@ class QueryCollection extends \Ufee\Amo\Base\Collections\Collection
      */
     public function cachePath($val)
     {
+		$instanceClass = get_class($this->instance);
         $this->cache_path = $val.'/'.$this->instance->getAuth('domain');
+		
         if (!file_exists($this->cache_path)) {
             mkdir($this->cache_path, 0777, true);
         }
-        if ($caches = glob($this->cache_path.'/*.cache')) {
+        if ($caches = glob($this->cache_path.'/*.'.$this->instanceName.'.cache')) {
             foreach ($caches as $cache_file) {
                 if ($cacheQuery = unserialize(file_get_contents($cache_file))) {
+					if (!$instanceClass::hasInstance($cacheQuery->account_id)) {
+						continue;
+					}
                     $service = $cacheQuery->getService();
                     if ($service::canCache() && microtime(1)-$cacheQuery->end_time <= $service::cacheTime()) {
                         array_push($this->items, $cacheQuery);
@@ -115,7 +122,7 @@ class QueryCollection extends \Ufee\Amo\Base\Collections\Collection
                 $query->headers,
                 count($query->json_data) ? $query->json_data : $query->post_data,
                 'Start: '.$query->startDate('H:i:s').' ('.$query->start_time.')',
-                'End:   '.$query->endDate('H:i:s').' ('.$query->end_time.')',
+                'End:   '.$query->endDate('H:i:s').' ('.$query->end_time.'), retries: '.$query->getRetries(),
                 'Execution time: '.$query->execution_time.' (sleep: '.(float)$query->sleep_time.')',
                 'Memory used: '.$query->memory_usage.' mb',
                 'Response code: '.$query->response->getCode(),
@@ -184,7 +191,7 @@ class QueryCollection extends \Ufee\Amo\Base\Collections\Collection
      */
     public function flush()
     {
-        array_map('unlink', glob($this->cache_path.'/*.cache'));
+        array_map('unlink', glob($this->cache_path.'/*.'.$this->instanceName.'.cache'));
         $this->items = [];
         return $this;
     }
@@ -196,6 +203,6 @@ class QueryCollection extends \Ufee\Amo\Base\Collections\Collection
      */
     public function cacheQuery(QueryModel $query)
     {
-        return file_put_contents($this->cache_path.'/'.$query->hash.'.cache', serialize($query));
+        return file_put_contents($this->cache_path.'/'.$query->hash.'.'.$this->instanceName.'.cache', serialize($query));
     }
 }

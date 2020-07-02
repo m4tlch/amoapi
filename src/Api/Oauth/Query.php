@@ -48,6 +48,16 @@ class Query extends QueryModel
         );
         curl_close($this->curl);
 
+		while ($this->response->getCode() == 429 && $this->retries <= 24) {
+			sleep(1);
+			return $this->setCurl()->execute();
+		}
+		if (in_array($this->response->getCode(), [502,504]) && $this->retry) {
+			sleep(1);
+            $this->setCurl();
+			$this->setRetry(false);
+            return $this->execute();
+		}
         $this->attributes['end_time'] = microtime(true);
         $this->attributes['execution_time'] = round($this->end_time - $this->start_time, 5);
         $this->attributes['memory_usage'] = memory_get_peak_usage(true)/1024/1024;
@@ -77,8 +87,12 @@ class Query extends QueryModel
         curl_setopt($this->curl, CURLOPT_URL, $this->getUrl());
 		curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->getHeaders());
         curl_setopt($this->curl, CURLOPT_POST, true);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($this->post_data));
-        
+		
+		if (!empty($this->attributes['json_data'])) {
+			curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($this->json_data));
+		} else {
+			curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($this->post_data));
+        }
         return curl_exec($this->curl);
     }
 

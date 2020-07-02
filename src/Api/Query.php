@@ -42,11 +42,11 @@ class Query extends QueryModel
             $this->setCurl();
             return $this->execute();
         }
-		while ($this->response->getCode() == 429 && $this->retries <= 32) {
+		while ($this->response->getCode() == 429 && $this->retries <= 24) {
 			sleep(1);
-			$this->setCurl()->execute();
+			return $this->setCurl()->execute();
 		}
-		if (in_array($this->response->getCode(), [502,504])) {
+		if (in_array($this->response->getCode(), [502,504]) && $this->retry) {
 			sleep(1);
             $this->setCurl();
 			$this->setRetry(false);
@@ -85,8 +85,12 @@ class Query extends QueryModel
         curl_setopt($this->curl, CURLOPT_URL, $this->getUrl());
 		curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->getHeaders());
         curl_setopt($this->curl, CURLOPT_POST, true);
-        curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($this->post_data));
-        
+		
+		if (!empty($this->attributes['json_data'])) {
+			curl_setopt($this->curl, CURLOPT_POSTFIELDS, json_encode($this->json_data));
+		} else {
+			curl_setopt($this->curl, CURLOPT_POSTFIELDS, http_build_query($this->post_data));
+        }
         return curl_exec($this->curl);
     }
 
